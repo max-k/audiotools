@@ -98,6 +98,9 @@ def verifySucceed(succeed):
         print("    -> Target : {}".format(dirname(succeed[directory]['target'])))
 
 def askConfirmation(failed, succeed):
+    if len(failed) == 0 and len(succeed) == 0:
+        print("\nNothing to upload")
+        return False
     print("\nSource directory : {}".format(upload_dir))
     print("Destination directory : {}".format(zik_dir))
     print("\nFollowing directories will be integrated :\n")
