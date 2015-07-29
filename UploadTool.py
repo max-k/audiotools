@@ -14,8 +14,8 @@ group = 'http'
 dir_mode = 0o775
 file_mode = 0o664
 
-from os import listdir, makedirs, rename, walk, chown, chmod
-from os.path import isdir, isfile, join, splitext, dirname
+from os import listdir, makedirs, rename, walk, chown, chmod, sep
+from os.path import isdir, isfile, join, splitext, basename, dirname, relpath
 from shutil import rmtree
 from sys import argv, exit
 from time import sleep
@@ -27,15 +27,13 @@ def usage():
     print('\nUsage : `python UploadTool.py`')
     exit(1)
 
-def checkCover(directory, error=None):
-    if error:
-        return
+def checkCover(directory):
+    global error
     if not isfile(join(upload_dir, directory, 'cover.jpg')):
-        error = "Missing album art"
+        error="Missing album art"
 
-def getTracks(directory, error=None):
-    if error:
-        return None
+def getTracks(directory):
+    global error
     tracks = []
     for flacfile in listdir(join(upload_dir, directory)):
         if search("flac$", splitext(flacfile)[1], I):
@@ -47,48 +45,75 @@ def getTracks(directory, error=None):
             tracks.append(track)
     return tracks
 
-def checkTags(tracks, error=None):
-    if error:
-        return
+def checkTags(tracks):
+    global error
     for track in tracks:
         if 'date' not in track.keys():
             error = "Date tag is missing"
+            return
         if 'genre' not in track.keys():
             error = "Genre tag is missing"
+            return
         if 'album' not in track.keys():
             error = "Album tag is missing"
+            return
         if 'artist' not in track.keys():
             error = "Artist tag is missing"
+            return
 
-def compareTags(tracks, error=None):
-    if error:
-        return
+def compareTags(tracks):
+    global error
     for track in tracks[1:]:
         if track['date'][0] != tracks[0]['date'][0]:
             error = "Year tag is different between tracks"
+            return
         if track['genre'][0] != tracks[0]['genre'][0]:
             error = "Genre tag is different between tracks"
+            return
         if track['album'][0] != tracks[0]['album'][0]:
             error = "Album tag is different between tracks"
+            return
         if track['artist'][0] != tracks[0]['artist'][0]:
             error = "Artist tag is different between tracks"
+            return
+
+def checkTarget(directory, tracks):
+    global error
+    for root, dirs, files in walk(zik_dir):
+        depth = relpath(root, zik_dir).count(sep)
+        if ((depth == 1 and dirname(root) != 'Soundtrack') or (basename(root) == 'Soundtrack')) and directory in dirs:
+            _root = root
+            if root != 'Soundtrack':
+                _root = dirname(root)
+            error = "Target directory already exists in genre {}".format(basename(_root))
+    target = join(zik_dir, tracks[0]['genre'][0], tracks[0]['artist'][0], directory)
+    if tracks[0]['genre'][0] == 'Soundtrack':
+        target = join(zik_dir, tracks[0]['genre'][0], directory)
+    return target
 
 def checkDirectories(failed, succeed):
+    global error
+    error = None
     for directory in listdir(upload_dir):
-        error = None
-        checkCover(directory, error)
-        tracks = getTracks(directory, error)
-        checkTags(tracks, error)
-        compareTags(tracks, error)
-        if error:
-            failed.update({directory: {'name': directory, 'error': error}})
-        target = join(zik_dir, tracks[0]['genre'][0], tracks[0]['artist'][0], directory)
-        if tracks[0]['genre'][0] == 'Soundtrack':
-            target = join(zik_dir, tracks[0]['genre'][0], directory)
-        succeed.update({directory: {'tags': tracks[0], 'target': target}})
+        checkCover(directory)
+        if error == None:
+            tracks = getTracks(directory)
+        if error == None:
+            checkTags(tracks)
+        if error == None:
+            compareTags(tracks)
+        if error == None:
+            target = checkTarget(directory, tracks)
+        if error == None:
+            succeed.update({directory: {'tags': tracks[0], 'target': target}})
+        else:
+            failed.update({directory: {'error': error}})
 
 def verifySucceed(succeed):
-    print("Directories tags verification :")
+    if len(succeed) == 0:
+        print("\nNothing to verify")
+        return
+    print("\nDirectories tags verification :")
     for directory in succeed.keys():
         print("\n   * {}".format(directory))
         print("    -> Genre : {}".format(succeed[directory]['tags']['genre'][0]))
@@ -103,10 +128,13 @@ def askConfirmation(failed, succeed):
         return False
     print("\nSource directory : {}".format(upload_dir))
     print("Destination directory : {}".format(zik_dir))
-    print("\nFollowing directories will be integrated :\n")
-    for directory in succeed.keys():
-        print("   * {}".format(directory))
-        print("    -> Target : {}".format(succeed[directory]['target'][len(zik_dir):]))
+    if len(succeed) == 0:
+        print("\nNothing to integrate")
+    else:
+        print("\nFollowing directories will be integrated :\n")
+        for directory in succeed.keys():
+            print("   * {}".format(directory))
+            print("    -> Target : {}".format(succeed[directory]['target'][len(zik_dir):]))
     print("\n {} directories will be skippped because of errors.".format(len(failed)))
     answer = 'v'
     while answer.lower() == 'v':
