@@ -7,8 +7,8 @@
 #2015-07-27
 #Require python-mutagen
 
-upload_dir = "/data/data-zik/data/upload"
-zik_dir = "/data/data-zik/data/ZIK"
+upload_dir = "/data/data-zik/data/uploadtmp"
+zik_dir = "/data/data-zik/data/ZIKtmp"
 user = 'root'
 group = 'http'
 dir_mode = 0o775
@@ -16,147 +16,69 @@ file_mode = 0o664
 
 from os import listdir, makedirs, rename, walk, chown, chmod, sep
 from os.path import isdir, isfile, join, splitext, basename, dirname, relpath
-from shutil import rmtree
 from sys import argv, exit
 from time import sleep
 from re import search, I
 from pwd import getpwnam
 from mutagen.flac import FLAC
 
-def usage():
-    print('\nUsage : `python UploadTool.py`')
-    exit(1)
+class Directory:
 
-def checkCover(directory):
-    global error
-    if not isfile(join(upload_dir, directory, 'cover.jpg')):
-        error="Missing album art"
+    def __init__(self, name):
+        self.name = name
+        self.path = join(upload_dir, self.name)
+        self.cover = isfile(join(self.path, 'cover.jpg'))
+        self.tags = {}
+        self.errors = []
+        self.checkAll()
 
-def getTracks(directory):
-    global error
-    tracks = []
-    for flacfile in listdir(join(upload_dir, directory)):
-        if search("flac$", splitext(flacfile)[1], I):
+    def checkAll(self):
+       if not self.cover:
+           self.errors.append('Missing album art')
+       self.checkTags()
+       if len(self.errors) == 0:
+           self.checkTarget()
+
+    def checkTags(self):
+        taglist = ['date', 'genre', 'album', 'artist']
+        files = [f for f in listdir(self.path) if search("flac$", splitext(f)[1], I)]
+        for filename in files:
             try:
-                track = FLAC(join(upload_dir, directory, flacfile))
+                tags = FLAC(join(upload_dir, self.name, filename))
             except:
-                error = "No tags found for file {}".format(flacfile)
-                return []
-            tracks.append(track)
-    return tracks
+                self.errors.append("A track has no tag at all")
+                return
+            tracktags = {t: tags[t][0] for t in taglist if t in list(tags) and len(tags[t]) > 0}
+            if len(list(tracktags)) != 4:
+                self.errors.append("Required tag missing for at least one track")
+                return
+            if self.tags == {}:
+                self.tags.update(tracktags)
+            diff = [t for t in list(self.tags) if self.tags[t] != tracktags[t]]
+            if len(diff) > 0:
+                self.errors.append("Tags are different between tracks")
+                return
 
-def checkTags(tracks):
-    global error
-    for track in tracks:
-        if 'date' not in track.keys():
-            error = "Date tag is missing"
-            return
-        if 'genre' not in track.keys():
-            error = "Genre tag is missing"
-            return
-        if 'album' not in track.keys():
-            error = "Album tag is missing"
-            return
-        if 'artist' not in track.keys():
-            error = "Artist tag is missing"
-            return
-
-def compareTags(tracks):
-    global error
-    for track in tracks[1:]:
-        if track['date'][0] != tracks[0]['date'][0]:
-            error = "Year tag is different between tracks"
-            return
-        if track['genre'][0] != tracks[0]['genre'][0]:
-            error = "Genre tag is different between tracks"
-            return
-        if track['album'][0] != tracks[0]['album'][0]:
-            error = "Album tag is different between tracks"
-            return
-        if track['artist'][0] != tracks[0]['artist'][0]:
-            error = "Artist tag is different between tracks"
-            return
-
-def checkTarget(directory, tracks):
-    global error
-    for root, dirs, files in walk(zik_dir):
-        depth = relpath(root, zik_dir).count(sep)
-        if ((depth == 1 and dirname(root) != 'Soundtrack') or (basename(root) == 'Soundtrack')) and directory in dirs:
-            _root = root
-            if root != 'Soundtrack':
-                _root = dirname(root)
-            error = "Target directory already exists in genre {}".format(basename(_root))
-    target = join(zik_dir, tracks[0]['genre'][0], tracks[0]['artist'][0], directory)
-    if tracks[0]['genre'][0] == 'Soundtrack':
-        target = join(zik_dir, tracks[0]['genre'][0], directory)
-    return target
-
-def checkDirectories(failed, succeed):
-    global error
-    error = None
-    for directory in listdir(upload_dir):
-        checkCover(directory)
-        if error == None:
-            tracks = getTracks(directory)
-        if error == None:
-            checkTags(tracks)
-        if error == None:
-            compareTags(tracks)
-        if error == None:
-            target = checkTarget(directory, tracks)
-        if error == None:
-            succeed.update({directory: {'tags': tracks[0], 'target': target}})
+    def checkTarget(self):
+        for root, dirs, files in walk(zik_dir):
+            depth = relpath(root, zik_dir).count(sep)
+            if ((depth == 1 and basename(root) != 'Soundtrack') or (basename(root) == 'Soundtrack')) and self.name in dirs:
+                _root = root
+                if root != 'Soundtrack':
+                    _root = dirname(root)
+                self.errors.append("Target directory already exists in genre {}".format(basename(_root)))
+                return
+        if self.tags['genre'] == 'Soundtrack':
+            self.target = join(zik_dir, self.tags['genre'], self.name)
         else:
-            failed.update({directory: {'error': error}})
+            self.target = join(zik_dir, self.tags['genre'], self.tags['artist'], self.name)
 
-def verifySucceed(succeed):
-    if len(succeed) == 0:
-        print("\nNothing to verify")
-        return
-    print("\nDirectories tags verification :")
-    for directory in succeed.keys():
-        print("\n   * {}".format(directory))
-        print("    -> Genre : {}".format(succeed[directory]['tags']['genre'][0]))
-        print("    -> Artist : {}".format(succeed[directory]['tags']['artist'][0]))
-        print("    -> Year : {}".format(succeed[directory]['tags']['date'][0]))
-        print("    -> Album : {}".format(succeed[directory]['tags']['album'][0]))
-        print("    -> Target : {}".format(dirname(succeed[directory]['target'])))
-
-def askConfirmation(failed, succeed):
-    if len(failed) == 0 and len(succeed) == 0:
-        print("\nNothing to upload")
-        return False
-    print("\nSource directory : {}".format(upload_dir))
-    print("Destination directory : {}".format(zik_dir))
-    if len(succeed) == 0:
-        print("\nNothing to integrate")
-    else:
-        print("\nFollowing directories will be integrated :\n")
-        for directory in succeed.keys():
-            print("   * {}".format(directory))
-            print("    -> Target : {}".format(succeed[directory]['target'][len(zik_dir):]))
-    print("\n {} directories will be skippped because of errors.".format(len(failed)))
-    answer = 'v'
-    while answer.lower() == 'v':
-        answer = input("\nWhat do you want to do ([p]roceed, [a]bort, [v]erify) ? ")
-        if answer.lower() == 'v':
-            verifySucceed(succeed)
-        if answer.lower() not in ('a', 'p'):
-            answer = 'v'
-    if answer.lower() == 'p':
-        return True
-    succeed = {}
-    return False
-
-def integrateDirectories(failed, succeed):
-    to_delete = []
-    for directory in succeed.keys():
-        source_dir = join(upload_dir, directory)
-        target_dir = succeed[directory]['target']
-        if not isdir(dirname(target_dir)):
+    def integrate(self):
+        global dir_mode, file_mode, user, group
+        if not isdir(dirname(self.target)):
             try:
-                makedirs(dirname(target_dir))
-                for root, dirs, files in walk(dirname(dirname(target_dir))):
+                makedirs(dirname(self.target))
+                for root, dirs, files in walk(dirname(dirname(self.target))):
                     chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
                     chmod(root, dir_mode)
                     for mydir in dirs:
@@ -166,61 +88,97 @@ def integrateDirectories(failed, succeed):
                         chown(join(root, myfile), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
                         chmod(join(root, myfile), file_mode)
             except Exception as e:
-                succeed[directory]['error'] = "Unable to create target directory : {}".format(e)
-                failed.update({directory: succeed[directory]})
-                to_delete.append(directory)
-                continue
-        try:
-            rename(source_dir, target_dir)
-            for root, dirs, files in walk(dirname(dirname(target_dir))):
-                chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
-                chmod(root, dir_mode)
-                for mydir in dirs:
-                    chown(join(root, mydir), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
-                    chmod(join(root, mydir), dir_mode)
-                for myfile in files:
-                    chown(join(root, myfile), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
-                    chmod(join(root, myfile), file_mode)
-        except Exception as e:
-            succeed[directory]['error'] = "Unable to move to target directory : {}".format(e)
-            failed.update({directory: succeed[directory]})
-            to_delete.append(directory)
-            continue
-        #try:
-        #    rmtree(source_dir)
-        #except Exception as e:
-        #    succeed[directory]['error'] = "Unable to remove source directory : {}".format(e)
-        #    failed.update({directory: succeed[directory]})
-        #    to_delete.append(directory)
-                
-    for directory in to_delete:
-        del succeed[directory]
+                self.errors.append('Unable to create target directory : {}'.format(e))
+                return
+            try:
+                rename(self.path, self.target)
+                for root, dirs, files in walk(dirname(dirname(self.target))):
+                    chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
+                    chmod(root, dir_mode)
+                    for mydir in dirs:
+                        chown(join(root, mydir), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
+                        chmod(join(root, mydir), dir_mode)
+                    for myfile in files:
+                        chown(join(root, myfile), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
+                        chmod(join(root, myfile), file_mode)
+            except Exception as e:
+                directory.errors.append('Unable to move to target directory : {}'.format(e))
 
-def printSummary(failed, succeed):
+def verify(succeed):
+    if len(succeed) == 0:
+        print("\nNothing to verify")
+        return
+    print("\nDirectories tags verification :")
+    for directory in succeed:
+        print("\n   * {}".format(directory.name))
+        print("    -> Genre : {}".format(directory.tags['genre']))
+        print("    -> Artist : {}".format(directory.tags['artist']))
+        print("    -> Year : {}".format(directory.tags['date']))
+        print("    -> Album : {}".format(directory.tags['album']))
+        print("    -> Target : {}".format(dirname(directory.target)))
+
+def askConfirmation(directories):
+    if len(directories) == 0:
+        print("\nNo directory has been uploaded")
+        return False
+    print("\nSource directory : {}".format(upload_dir))
+    print("Destination directory : {}".format(zik_dir))
+    succeed = [d for d in directories if len(d.errors) == 0]
+    failed = [d for d in directories if len(d.errors) > 0]
+    if len(succeed) == 0:
+        print("\nNothing to integrate")
+    else:
+        print("\nFollowing directories will be integrated :\n")
+        for directory in succeed:
+            print("   * {}".format(directory.name))
+            print("    -> Target : {}".format(dirname(directory.target)))
+    print("\n {} directories will be skippped because of errors.".format(len(failed)))
+    answer = 'v'
+    while answer.lower() == 'v':
+        answer = input("\nWhat do you want to do ([p]roceed, [a]bort, [v]erify) ? ")
+        if answer.lower() == 'v':
+            verify(succeed)
+        if answer.lower() not in ('a', 'p'):
+            answer = 'v'
+    if answer.lower() == 'p':
+        return True
+    return False
+
+def printSummary(directories, confirmation):
+    succeed = [d for d in directories if len(d.errors) == 0]
+    failed = [d for d in directories if len(d.errors) > 0]
     print("\n######## Summary ########\n")
     if len(succeed) > 0:
-        print("{} directories have been successfully integrated.\n".format(len(succeed)))
+        if confirmation:
+            print("{} directories have been successfully integrated.\n".format(len(succeed)))
+        else:
+            print("{} directories should have been successfully integrated.\n".format(len(succeed)))
     if len(failed) > 0:
         print("\nFailed directories :\n")
-        for directory in failed.keys():
-            print("   * {}".format(directory))
-            print("    -> Error : {}".format(failed[directory]['error']))
+        for directory in failed:
+            print("   * {}".format(directory.name))
+            print("    -> Errors : {}".format("\n                ".join(directory.errors)))
+
+def usage():
+    print('\nUsage : `python UploadTool.py`')
+    exit(1)
 
 if __name__ == '__main__':
 
-    if not isdir(upload_dir):
+    if len(argv) != 1 or not isdir(upload_dir):
         usage()
 
-    if len(argv) != 1:
-        usage()
+    directories = []
+    for _dir in listdir(upload_dir):
+        directory = Directory(_dir)
+        directories.append(directory)
 
-    failed = {}
-    succeed = {}
+    confirmation = askConfirmation(directories)
+    if confirmation:
+        for directory in directories:
+            directory.integrate()
 
-    checkDirectories(failed, succeed)
-    if askConfirmation(failed, succeed):
-        integrateDirectories(failed, succeed)
-    printSummary(failed, succeed)
+    printSummary(directories, confirmation)
 
     print("\nJob finished")
     exit(0)
