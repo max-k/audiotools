@@ -145,6 +145,7 @@ def askConfirmation(failed, succeed):
             answer = 'v'
     if answer.lower() == 'p':
         return True
+    succeed = {}
     return False
 
 def integrateDirectories(failed, succeed):
@@ -219,7 +220,7 @@ if __name__ == '__main__':
     checkDirectories(failed, succeed)
     if askConfirmation(failed, succeed):
         integrateDirectories(failed, succeed)
-        printSummary(failed, succeed)
+    printSummary(failed, succeed)
 
     print("\nJob finished")
     exit(0)
