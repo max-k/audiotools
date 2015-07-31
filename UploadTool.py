@@ -7,8 +7,8 @@
 #2015-07-27
 #Require python-mutagen
 
-upload_dir = "/data/data-zik/data/uploadtmp"
-zik_dir = "/data/data-zik/data/ZIKtmp"
+upload_dir = "/data/data-zik/data/upload"
+zik_dir = "/data/data-zik/data/ZIK"
 user = 'root'
 group = 'http'
 dir_mode = 0o775
