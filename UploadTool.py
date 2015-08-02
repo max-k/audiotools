@@ -126,10 +126,11 @@ def askConfirmation(directories):
     failed = [d for d in directories if len(d.errors) > 0]
     if len(succeed) == 0:
         print("\nNothing to integrate")
-    else if len(succeed) == 1:
-        print("\nFollowing directory will be integrated :\n")
     else:
-        print("\nFollowing directories will be integrated :\n")
+        if len(succeed) == 1:
+            print("\nFollowing directory will be integrated :\n")
+        else:
+            print("\nFollowing directories will be integrated :\n")
         for directory in succeed:
             print("   * {}".format(directory.name))
             print("    -> Target : {}".format(dirname(directory.target)))
@@ -165,7 +166,6 @@ def printSummary(directories, confirmation):
             print("\nFailed directory :\n")
         else:
             print("\nFailed directories :\n")
-        for directory in failed:
         for directory in failed:
             print("   * {}".format(directory.name))
             print("    -> Errors : {}".format("\n                ".join(directory.errors)))
