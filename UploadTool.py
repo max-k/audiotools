@@ -126,12 +126,17 @@ def askConfirmation(directories):
     failed = [d for d in directories if len(d.errors) > 0]
     if len(succeed) == 0:
         print("\nNothing to integrate")
+    else if len(succeed) == 1:
+        print("\nFollowing directory will be integrated :\n")
     else:
         print("\nFollowing directories will be integrated :\n")
         for directory in succeed:
             print("   * {}".format(directory.name))
             print("    -> Target : {}".format(dirname(directory.target)))
-    print("\n {} directories will be skippped because of errors.".format(len(failed)))
+    if len(failed) <= 1:
+        print("\n {} directory will be skippped because of errors.".format(len(failed)))
+    else:
+        print("\n {} directories will be skippped because of errors.".format(len(failed)))
     answer = 'v'
     while answer.lower() == 'v':
         answer = input("\nWhat do you want to do ([p]roceed, [a]bort, [v]erify) ? ")
@@ -148,12 +153,19 @@ def printSummary(directories, confirmation):
     failed = [d for d in directories if len(d.errors) > 0]
     print("\n######## Summary ########\n")
     if len(succeed) > 0:
-        if confirmation == True:
-            print("{} directories have been successfully integrated.\n".format(len(succeed)))
+        _should = ''
+        if confirmation == False:
+            _should = 'should '
+        if len(succeed) == 1:
+            print("{} directory {}has been successfully integrated.\n".format(len(succeed), _should))
         else:
-            print("{} directories should have been successfully integrated.\n".format(len(succeed)))
+            print("{} directories {}have been successfully integrated.\n".format(len(succeed), _should))
     if len(failed) > 0:
-        print("\nFailed directories :\n")
+        if len(failed) == 1:
+            print("\nFailed directory :\n")
+        else:
+            print("\nFailed directories :\n")
+        for directory in failed:
         for directory in failed:
             print("   * {}".format(directory.name))
             print("    -> Errors : {}".format("\n                ".join(directory.errors)))
