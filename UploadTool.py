@@ -76,8 +76,6 @@ class Directory:
         if len(self.errors) == 0:
             if not isdir(dirname(self.target)):
                 try:
-                    print(self.path)
-                    print(self.target)
                     makedirs(dirname(self.target))
                     for root, dirs, files in walk(dirname(dirname(self.target))):
                         chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
@@ -92,8 +90,6 @@ class Directory:
                     self.errors.append('Unable to create target directory : {}'.format(e))
                     return
             try:
-                print(self.path)
-                print(self.target)
                 rename(self.path, self.target)
                 for root, dirs, files in walk(dirname(dirname(self.target))):
                     chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
