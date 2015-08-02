@@ -36,8 +36,7 @@ class Directory:
        if not self.cover:
            self.errors.append('Missing album art')
        self.checkTags()
-       if len(self.errors) == 0:
-           self.checkTarget()
+       self.checkTarget()
 
     def checkTags(self):
         taglist = ['date', 'genre', 'album', 'artist']
@@ -67,7 +66,6 @@ class Directory:
                 if root != 'Soundtrack':
                     _root = dirname(root)
                 self.errors.append("Target directory already exists in genre {}".format(basename(_root)))
-                return
         if self.tags['genre'] == 'Soundtrack':
             self.target = join(zik_dir, self.tags['genre'], self.name)
         else:
