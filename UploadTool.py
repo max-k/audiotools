@@ -73,11 +73,28 @@ class Directory:
 
     def integrate(self):
         global dir_mode, file_mode, user, group
-        if not isdir(dirname(self.target)):
+        if len(self.errors) == 0:
+            if not isdir(dirname(self.target)):
+                try:
+                    print(self.path)
+                    print(self.target)
+                    makedirs(dirname(self.target))
+                    for root, dirs, files in walk(dirname(dirname(self.target))):
+                        chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
+                        chmod(root, dir_mode)
+                        for mydir in dirs:
+                            chown(join(root, mydir), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
+                            chmod(join(root, mydir), dir_mode)
+                        for myfile in files:
+                            chown(join(root, myfile), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
+                            chmod(join(root, myfile), file_mode)
+                except Exception as e:
+                    self.errors.append('Unable to create target directory : {}'.format(e))
+                    return
             try:
                 print(self.path)
                 print(self.target)
-                makedirs(dirname(self.target))
+                rename(self.path, self.target)
                 for root, dirs, files in walk(dirname(dirname(self.target))):
                     chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
                     chmod(root, dir_mode)
@@ -88,23 +105,7 @@ class Directory:
                         chown(join(root, myfile), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
                         chmod(join(root, myfile), file_mode)
             except Exception as e:
-                self.errors.append('Unable to create target directory : {}'.format(e))
-                return
-        try:
-            print(self.path)
-            print(self.target)
-            rename(self.path, self.target)
-            for root, dirs, files in walk(dirname(dirname(self.target))):
-                chown(root, getpwnam(user).pw_uid, getpwnam(group).pw_uid)
-                chmod(root, dir_mode)
-                for mydir in dirs:
-                    chown(join(root, mydir), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
-                    chmod(join(root, mydir), dir_mode)
-                for myfile in files:
-                    chown(join(root, myfile), getpwnam(user).pw_uid, getpwnam(group).pw_uid)
-                    chmod(join(root, myfile), file_mode)
-        except Exception as e:
-            directory.errors.append('Unable to move to target directory : {}'.format(e))
+                directory.errors.append('Unable to move to target directory : {}'.format(e))
 
 def verify(succeed):
     if len(succeed) == 0:
