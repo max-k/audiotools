@@ -147,7 +147,7 @@ def printSummary(directories, confirmation):
     failed = [d for d in directories if len(d.errors) > 0]
     print("\n######## Summary ########\n")
     if len(succeed) > 0:
-        if confirmation:
+        if confirmation == True:
             print("{} directories have been successfully integrated.\n".format(len(succeed)))
         else:
             print("{} directories should have been successfully integrated.\n".format(len(succeed)))
