@@ -140,28 +140,22 @@ def askConfirmation(directories):
         print("\n {} directories will be skippped because of errors.".format(len(failed)))
     answer = 'v'
     while answer.lower() == 'v':
-        answer = input("\nWhat do you want to do ([p]roceed, [a]bort, [v]erify) ? ")
+        answer = input("\nWhat do you want to do ([p]roceed, [q]uit, [a]bort, [v]erify, show [e]rrors) ? ")
         if answer.lower() == 'v':
             verify(succeed)
-        if answer.lower() not in ('a', 'p'):
+        if answer.lower() == 'e':
+            printFailed(directories)
+        if answer.lower() not in ('a', 'p', 'q'):
             answer = 'v'
     if answer.lower() == 'p':
         return True
     return False
 
-def printSummary(directories, confirmation):
-    succeed = [d for d in directories if len(d.errors) == 0]
+def printFailed(directories):
     failed = [d for d in directories if len(d.errors) > 0]
-    print("\n######## Summary ########\n")
-    if len(succeed) > 0:
-        _should = ''
-        if confirmation == False:
-            _should = 'should '
-        if len(succeed) == 1:
-            print("{} directory {}has been successfully integrated.\n".format(len(succeed), _should))
-        else:
-            print("{} directories {}have been successfully integrated.\n".format(len(succeed), _should))
-    if len(failed) > 0:
+    if len(failed) == 0:
+        print("\nNothing to show")
+    else:
         if len(failed) == 1:
             print("\nFailed directory :\n")
         else:
@@ -169,6 +163,21 @@ def printSummary(directories, confirmation):
         for directory in failed:
             print("   * {}".format(directory.name))
             print("    -> Errors : {}".format("\n                ".join(directory.errors)))
+
+def printSummary(directories, confirmation):
+    succeed = [d for d in directories if len(d.errors) == 0]
+    print("\n######## Summary ########\n")
+    if len(succeed) > 0:
+        _should = ''
+        if confirmation == False:
+            _should = 'should '
+        if len(succeed) == 1 and confirmation == False:
+            print("1 directory {}have been successfully integrated.\n".format(_should))
+        elif len(succeed) == 1:
+            print("1 directory has been successfully integrated.\n")
+        else:
+            print("{} directories {}have been successfully integrated.\n".format(len(succeed), _should))
+    printFailed(directories)
 
 def usage():
     print('\nUsage : `python UploadTool.py`')
