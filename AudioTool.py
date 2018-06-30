@@ -255,9 +255,9 @@ class audioFile(object):
         if isfile(join(self._dirname, "cover.jpg")):
             self.runCmd('cp "' + join(self._dirname, "cover.jpg") + '" "' + mv_dir + '/"')
 
-    def Exit(self):
+    def Exit(self, wait=10):
         print('Job finished. Exit in 10 seconds.\n')
-        sleep(10)
+        sleep(wait)
         exit(1)
 
 class audioTrack(audioFile):
@@ -390,16 +390,17 @@ class audioAlbum(audioFile):
 
 if __name__ == '__main__':
 
-    if not (len(argv) == 2 or (len(argv) == 3 and argv[2] == '--mp3')):
-        print('\nUsage : `python2 AudioTool.py filename [--mp3]`')
+    if not (len(argv) >= 2 and all(x[2:] in ['mp3', 'disc', 'track'] for x in argv[2:])):
+        print('\nUsage : `python2 AudioTool.py filename [--mp3] [--track] [--disc]`')
         print('Filename must be fully qualified or in current directory.')
         print('Supported formats : flac, wavpack (wv), monkey\'s audio (ape),')
         print('trueaudio (tta) or shorten (shn).\n')
-        print('If you use --mp3, output will be mp3 files.')
-        sleep(3)
+        print('  *  --mp3 Generate mp3 instead of flac files')
+        print('  *  --track Force input file to be a track (useful if track is > 150Mb)')
+        print('  *  --mp3 Force input file to be a disc (useful if disc is < 150Mb)\n')
     else:
         output_format = 'flac'
-        if len(argv) == 3 and argv[2] == '--mp3':
+        if len(argv) >= 3 and '--mp3' in argv[2:]:
             output_format = 'mp3'
         if isfile(argv[1]):
             print('\n' + argv[1] + ' is a file.\n')
@@ -410,8 +411,20 @@ if __name__ == '__main__':
                 print(argv[1] + ' is fully qualified.\n')
                 arg_file = argv[1]
             if splitext(arg_file)[1] in extensions:
-                if getsize(arg_file) / 1048576 < 150:
+                mb_size = getsize(arg_file) / 1048576
+                if len(argv) >= 3 and '--track' in argv[2:]:
+                    input_type = 'track'
+                    print('Track type forced.')
+                elif len(argv) >= 3 and '--disc' in argv[2:]:
+                    input_type = 'disc'
+                    print('Disc type forced.')
+                elif mb_size < 150:
+                    input_type = 'track'
                     print(argv[1] + ' is smaller than 150Mb.\n')
+                else:
+                    input_type = 'disc'
+                    print(argv[1] + ' is bigger than 150Mb.\n')
+                if input_type == 'track':
                     myfile = audioTrack(arg_file)
                     myfile.saveTags()
                     myfile.renameAll()
@@ -419,7 +432,6 @@ if __name__ == '__main__':
                     myfile.encodeAll(output_format)
                     myfile.restoreTags(output_format)
                 else:
-                    print(argv[1] + ' is bigger than 150Mb.\n')
                     myfile = audioAlbum(arg_file)
                     myfile.checkCueSheet()
                     myfile.unpackAll(output_format)
@@ -436,7 +448,5 @@ if __name__ == '__main__':
             else:
                 print(argv[1] + ' : ' + splitext(arg_file)[1] + ' unsupported format.')
                 print('Supported formats : flac, wavpack, monkey\'s audio, trueaudio, shorten, wav.\n')
-                sleep(3)
         else:
             print('\n"' + unicode(argv[1]) + '"' + ' is not a file !')
-            sleep(3)
