@@ -36,7 +36,8 @@ class Directory:
        if not self.cover:
            self.errors.append('Missing album art')
        self.checkTags()
-       self.checkTarget()
+       if 'genre' in self.tags:
+           self.checkTarget()
 
     def checkTags(self):
         taglist = ['date', 'genre', 'album', 'artist']
