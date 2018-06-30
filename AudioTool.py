@@ -238,11 +238,12 @@ class audioFile(object):
                 track.save()
         print('\n')
 
-    def deleteCue(self):
+    def cleanUp(self, extensions=['cue', 'log', 'txt', 'm3u', 'accurip']):
         print('Cue-sheet deleting (if exist).\n')
         for i in listdir(self._dirname):
-            if search("cue$", splitext(i)[1], I) or search("log$", splitext(i)[1], I):
-                remove(join(self._dirname, i))
+            for ext in extensions:
+                if search("{0}$".format(ext), splitext(i)[1], I):
+                    remove(join(self._dirname, i))
 
     def moveAll(self, format):
         if format == "mp3":
@@ -261,7 +262,7 @@ class audioFile(object):
         if len(argv) >= 3 and '--wait' in argv[2:]:
             print('Exit in {0} seconds.'.format(wait))
             sleep(wait)
-        print()
+        print('')
         exit(1)
 
 class audioTrack(audioFile):
@@ -446,7 +447,7 @@ if __name__ == '__main__':
                     myfile.restoreTags(output_format)
                     myfile.renameAll()
                 if output_format != 'mp3':
-                    myfile.deleteCue()
+                    myfile.cleanUp()
                 else:
                     myfile.moveAll(output_format)
                 myfile.Exit()
