@@ -1,21 +1,19 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
-#AudioTool.py - Gestion des fichiers audio
-#max-k <max-k@post.com>
-#version 4.0.2 - python 2.7
-#2011-01-14
-#Require cuetools, bchunk, flac (Free Lossless Audio Codec),
-#mac (Monkey's Audio), wvunpack (Wavpack), ttaenc (True Audio),
-#shorten (Shorten), python-mutagen module to edit meta-tags,
-#and lame to encode into mp3 format.
+# AudioTool.py - Gestion des fichiers audio
+# max-k <max-k@post.com>
+# version 4.0.2 - python 2.7
+# 2011-01-14
+# Require cuetools, bchunk, flac (Free Lossless Audio Codec),
+# mac (Monkey's Audio), wvunpack (Wavpack), ttaenc (True Audio),
+# shorten (Shorten), python-mutagen module to edit meta-tags,
+# and lame to encode into mp3 format.
 
-extensions = ['.flac', '.wv', '.ape', '.tta', '.shn', '.wav']
-
-from os import path, getcwd, listdir, remove, system, chdir
+from os import path, getcwd, listdir, remove, chdir
 from os.path import basename, dirname, getsize, isfile, splitext, join
 from re import search, I, sub, findall
-from string import split, strip, lstrip
+from string import strip, lstrip
 from sys import argv, exit
 from shutil import move
 from mutagen.flac import FLAC
@@ -27,8 +25,11 @@ from mutagen.easyid3 import EasyID3
 from time import sleep
 import subprocess
 
+extensions = ['.flac', '.wv', '.ape', '.tta', '.shn', '.wav']
+
+
 class audioFile(object):
-    
+
     def __init__(self, filename):
         print('\nLet\'s go !!\n')
         self._filename = filename
@@ -256,8 +257,11 @@ class audioFile(object):
             self.runCmd('cp "' + join(self._dirname, "cover.jpg") + '" "' + mv_dir + '/"')
 
     def Exit(self, wait=10):
-        print('Job finished. Exit in 10 seconds.\n')
-        sleep(wait)
+        print('Job finished.')
+        if len(argv) >= 3 and '--wait' in argv[2:]:
+            print('Exit in {0} seconds.'.format(wait))
+            sleep(wait)
+        print()
         exit(1)
 
 class audioTrack(audioFile):
@@ -355,7 +359,7 @@ class audioAlbum(audioFile):
             print('Parsing ' + self._splitname[0] + '.cue.\n')
             for line in cuesheet:
                 line = sub("\\r$", "", sub("\\n$", "", sub("\\xef\\xbb\\xbf", "", line)))
-                print line.split()
+                print(line.split())
                 try:
                     line.decode("UTF-8")
                 except:
@@ -390,14 +394,15 @@ class audioAlbum(audioFile):
 
 if __name__ == '__main__':
 
-    if not (len(argv) >= 2 and all(x[2:] in ['mp3', 'disc', 'track'] for x in argv[2:])):
+    if not (len(argv) >= 2 and all(x[2:] in ['mp3', 'disc', 'track', 'wait'] for x in argv[2:])):
         print('\nUsage : `python2 AudioTool.py filename [--mp3] [--track] [--disc]`')
         print('Filename must be fully qualified or in current directory.')
         print('Supported formats : flac, wavpack (wv), monkey\'s audio (ape),')
         print('trueaudio (tta) or shorten (shn).\n')
         print('  *  --mp3 Generate mp3 instead of flac files')
         print('  *  --track Force input file to be a track (useful if track is > 150Mb)')
-        print('  *  --mp3 Force input file to be a disc (useful if disc is < 150Mb)\n')
+        print('  *  --mp3 Force input file to be a disc (useful if disc is < 150Mb)')
+        print('  *  --wait Wait a bit when job is finished\n')
     else:
         output_format = 'flac'
         if len(argv) >= 3 and '--mp3' in argv[2:]:
