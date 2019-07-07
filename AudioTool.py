@@ -7,7 +7,8 @@
 # 2011-01-14
 # Require cuetools, bchunk, flac (Free Lossless Audio Codec),
 # mac (Monkey's Audio), wvunpack (Wavpack), ttaenc (True Audio),
-# shorten (Shorten), python-mutagen module to edit meta-tags,
+# shorten (Shorten), ffmpeg (ALAC),
+# python-mutagen module to edit meta-tags,
 # and lame to encode into mp3 format.
 
 from os import path, getcwd, listdir, remove, chdir
@@ -21,11 +22,12 @@ from mutagen.apev2 import APEv2
 from mutagen.wavpack import WavPack
 from mutagen.id3 import COMM
 from mutagen.mp3 import MP3
+from mutagen.mp4 import MP4
 from mutagen.easyid3 import EasyID3
 from time import sleep
 import subprocess
 
-extensions = ['.flac', '.wv', '.ape', '.tta', '.shn', '.wav']
+extensions = ['.flac', '.wv', '.ape', '.tta', '.shn', '.wav', '.m4a']
 
 
 class audioFile(object):
@@ -54,7 +56,7 @@ class audioFile(object):
 
     def unpackAll(self, format):
         print('Files unpacking ...\n')
-        flaclist, apelist, wvlist, ttalist, shnlist, wavlist = [], [], [], [], [], []
+        flaclist, apelist, wvlist, ttalist, shnlist, wavlist, alaclist = [], [], [], [], [], [], []
         for i in listdir(self._dirname):
             if search('"', i):
                 i = i.replace('"', r'\"')
@@ -72,14 +74,17 @@ class audioFile(object):
                 shnlist.append(join(self._dirname, i))
             elif search("wav$", splitext(i)[1], I):
                 wavlist.append(join(self._dirname, i))
+            elif search("m4a$", splitext(i)[1], I):
+                alaclist.append(join(self._dirname, i))
         flaclist.sort()
         apelist.sort()
         wvlist.sort()
         ttalist.sort()
         shnlist.sort()
         wavlist.sort()
-        len_lists = len(flaclist + apelist + wvlist + ttalist + shnlist + wavlist)
-        if len_lists > len(flaclist) and len_lists > len(apelist) and len_lists > len(wvlist) and len_lists > len(ttalist) and len_lists > len(shnlist) and len_lists > len(wavlist):
+        alaclist.sort()
+        len_lists = len(flaclist + apelist + wvlist + ttalist + shnlist + wavlist + alaclist)
+        if len_lists > len(flaclist) and len_lists > len(apelist) and len_lists > len(wvlist) and len_lists > len(ttalist) and len_lists > len(shnlist) and len_lists > len(wavlist) and len_lists > len(alaclist):
             print("unpack error : more than one file format in this directory !\n")
             self.Exit()
         elif flaclist != []:
@@ -97,6 +102,12 @@ class audioFile(object):
                 print('Unpacking file' + str(counter) + ' : ' + basename(i))
                 self.runCmd('shorten -x "' + i + '" "' + splitext(i)[0] + '.wav"')
                 counter = counter + 1
+        elif alaclist != []:
+            counter = 1
+            for i in alaclist:
+                print('Unpacking file' + str(counter) + ' : ' + basename(i))
+                self.runCmd('ffmpeg -loglevel error -stats -i "' + i + '" "' + splitext(i)[0] + '.wav"')
+                counter = counter + 1
         if format != "mp3":
             if apelist != [] or shnlist != []:
                 self.runCmd('rm -f "' + i + '"')
@@ -104,6 +115,8 @@ class audioFile(object):
                 self.runCmd('rm -f "' + '" "'.join(flaclist) + '"')
             elif ttalist != []:
                 self.runCmd('rm -f "' + '" "'.join(ttalist) + '"')
+            elif alaclist != []:
+                self.runCmd('rm -f "' + '" "'.join(alaclist) + '"')
         print('\n')
 
     def encodeAll(self, format):
@@ -132,20 +145,24 @@ class audioFile(object):
                 filelist.append(i)
         filelist.sort()
         for i in filelist:
+                typeT = 0
                 if search("tta$", splitext(i)[1], I) or search("shn$", splitext(i)[1], I) or search("wav$", splitext(i)[1], I):
-                    typeT = 3
+                    typeT = 1
                 elif search("flac$", splitext(i)[1], I):
                     try:
                         track = FLAC(join(self._dirname, i))
                     except:
                         track = {}
-                    typeT = 0
+                elif search("m4a$", splitext(i)[1], I):
+                    try:
+                        track = MP4(join(self._dirname, i))
+                    except:
+                        track = {}
                 elif search("mp3$", splitext(i)[1], I):
                     try:
                         track = MP3(join(self._dirname, i))
                     except:
                         track = {}
-                    typeT = 1
                 else:
                     if search("wv$", splitext(i)[1], I):
                         try:
@@ -157,8 +174,7 @@ class audioFile(object):
                             track = APEv2(join(self._dirname, i))
                         except:
                             track = {}
-                    typeT = 2
-                if typeT != 3 and ( track.has_key('tracknumber') or track.has_key('track') ):
+                if typeT != 1 and ( track.has_key('tracknumber') or track.has_key('track') ):
                     if track.has_key('tracknumber'):
                         numT = track['tracknumber'][0].split("/")[0]
                     else:
@@ -174,7 +190,7 @@ class audioFile(object):
                     numT = splitext(i)[0][:2]
                 elif search("^\d", splitext(i)[0]):
                     numT = "0" + splitext(i)[0][:2]
-                if typeT != 3 and track.has_key('title'):
+                if typeT != 1 and track.has_key('title'):
                     titleT = " - ".join(track['title'])
                     if search("/", titleT):
                         titleT = sub("/", " - ", sub("\s/\s", " - ", " - ".join(track['title'])))
@@ -284,25 +300,40 @@ class audioTrack(audioFile):
                 track = WavPack(join(self._dirname, self._basename))
             except:
                 print ('No WV tag found\n')
+        elif search("m4a$", splitext(self._basename)[1], I):
+            try:
+                track = MP4(join(self._dirname, self._basename))
+            except:
+                print ('No ALAC tag found\n')
         else:
             return
         try:
-            if track.has_key('genre'):
+            if isinstance(track, MP4) and track.has_key('\xa9gen'):
+                self._genre = " ".join(track['\xa9gen'])
+            elif track.has_key('genre'):
                 self._genre = " ".join(track['genre'])
-                print('Genre : ' + " ".join(track['genre']))
-            if track.has_key('date') or track.has_key('year'):
-                if track.has_key('date'):
-                    year = 'date'
-                else:
-                    year = 'year'
-                self._date = " ".join(track[year])
-                print('Year : ' + " ".join(track[year]))
-            if track.has_key('artist'):
+            if self._genre:
+                print('Genre : ' + self._genre)
+            if isinstance(track, MP4) and track.has_key('\xa9day'):
+                self._date = " ".join(track['\xa9day'])
+            elif track.has_key('date'):
+                self._date = " ".join(track['date'])
+            elif track.has_key('year'):
+                self._date = " ".join(track['year'])
+            if self._date:
+                print('Year : ' + self._date)
+            if isinstance(track, MP4) and track.has_key('\xa9ART'):
+                self._artist = " ".join(track['\xa9ART'])
+            elif track.has_key('artist'):
                 self._artist = " ".join(track['artist'])
-                print('Artist : ' + " ".join(track['artist']))
-            if track.has_key('album'):
+            if self._artist:
+                print('Artist : ' + self._artist)
+            if isinstance(track, MP4) and track.has_key('\xa9alb'):
+                self._album = " ".join(track['\xa9alb'])
+            elif track.has_key('album'):
                 self._album = " ".join(track['album'])
-                print('Album : ' + " ".join(track['album']))
+            if self._artist:
+                print('Album : ' + self._artist)
             print('\n')
         except:
             track = {}
@@ -399,7 +430,7 @@ if __name__ == '__main__':
         print('\nUsage : `python2 AudioTool.py filename [--mp3] [--track] [--disc]`')
         print('Filename must be fully qualified or in current directory.')
         print('Supported formats : flac, wavpack (wv), monkey\'s audio (ape),')
-        print('trueaudio (tta) or shorten (shn).\n')
+        print('trueaudio (tta), shorten (shn) or ALAC (m4a).\n')
         print('  *  --mp3 Generate mp3 instead of flac files')
         print('  *  --track Force input file to be a track (useful if track is > 150Mb)')
         print('  *  --mp3 Force input file to be a disc (useful if disc is < 150Mb)')
