@@ -163,22 +163,23 @@ class audioFile(object):
                         track = MP3(join(self._dirname, i))
                     except:
                         track = {}
-                else:
-                    if search("wv$", splitext(i)[1], I):
-                        try:
-                            track = WavPack(join(self._dirname, i))
-                        except:
-                            track = {}
-                    elif search("ape$", splitext(i)[1], I):
-                        try:
-                            track = APEv2(join(self._dirname, i))
-                        except:
-                            track = {}
-                if typeT != 1 and ( track.has_key('tracknumber') or track.has_key('track') ):
+                elif search("wv$", splitext(i)[1], I):
+                    try:
+                        track = WavPack(join(self._dirname, i))
+                    except:
+                        track = {}
+                elif search("ape$", splitext(i)[1], I):
+                    try:
+                        track = APEv2(join(self._dirname, i))
+                    except:
+                        track = {}
+                if typeT != 1 and ( track.has_key('tracknumber') or track.has_key('track') or track.has_key('trkn') ):
                     if track.has_key('tracknumber'):
                         numT = track['tracknumber'][0].split("/")[0]
-                    else:
+                    elif track.has_key('track'):
                         numT = track['track'][0]
+                    else:
+                        numT = str(track['trkn'][0][0])
                     if len(numT) < 2:
                         numT = '0' + numT
                         if track.has_key('tracknumber'):
