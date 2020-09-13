@@ -9,8 +9,8 @@
 
 upload_dir = "/data/upload"
 zik_dir = "/data/ZIK"
-user = 'root'
-group = 'http'
+user = 'max-k'
+group = 'max-k'
 dir_mode = 0o775
 file_mode = 0o664
 
