@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# flake8: noqa: E501
 
-#UploadTool.py - Gestion des albums uploadés sur le serveur
-#max-k <max-k@post.com>
-#version 0.1 - python 3.4.3
-#2015-07-27
-#Require python-mutagen
+from os import listdir, makedirs, rename, walk, chown, chmod, sep
+from os.path import isdir, isfile, join, splitext, basename, dirname, relpath
+from sys import argv, exit
+from re import search, I
+from pwd import getpwnam
+from mutagen.flac import FLAC
 
-upload_dir = "/data/upload"
-zik_dir = "/data/ZIK"
+# UploadTool.py - Gestion des albums uploadés sur le serveur
+# max-k <max-k@post.com>
+# version 0.1 - python 3.4.3
+# 2015-07-27
+# Require python-mutagen
+
+upload_dir = "/data/data-zik/data/upload"
+zik_dir = "/data/data-zik/data/ZIK"
 user = 'max-k'
 group = 'max-k'
 dir_mode = 0o775
 file_mode = 0o664
 
-from os import listdir, makedirs, rename, walk, chown, chmod, sep
-from os.path import isdir, isfile, join, splitext, basename, dirname, relpath
-from sys import argv, exit
-from time import sleep
-from re import search, I
-from pwd import getpwnam
-from mutagen.flac import FLAC
 
 class Directory:
 
@@ -33,11 +34,11 @@ class Directory:
         self.checkAll()
 
     def checkAll(self):
-       if not self.cover:
-           self.errors.append('Missing album art')
-       self.checkTags()
-       if 'genre' in self.tags:
-           self.checkTarget()
+        if not self.cover:
+            self.errors.append('Missing album art')
+        self.checkTags()
+        if 'genre' in self.tags:
+            self.checkTarget()
 
     def checkTags(self):
         taglist = ['date', 'genre', 'album', 'artist']
@@ -104,6 +105,7 @@ class Directory:
             except Exception as e:
                 directory.errors.append('Unable to move to target directory : {}'.format(e))
 
+
 def verify(succeed):
     if len(succeed) == 0:
         print("\nNothing to verify")
@@ -116,6 +118,7 @@ def verify(succeed):
         print("    -> Year : {}".format(directory.tags['date']))
         print("    -> Album : {}".format(directory.tags['album']))
         print("    -> Target : {}".format(dirname(directory.target)))
+
 
 def askConfirmation(directories):
     if len(directories) == 0:
@@ -152,6 +155,7 @@ def askConfirmation(directories):
         return True
     return False
 
+
 def printFailed(directories):
     failed = [d for d in directories if len(d.errors) > 0]
     if len(failed) == 0:
@@ -165,14 +169,15 @@ def printFailed(directories):
             print("   * {}".format(directory.name))
             print("    -> Errors : {}".format("\n                ".join(directory.errors)))
 
+
 def printSummary(directories, confirmation):
     succeed = [d for d in directories if len(d.errors) == 0]
     print("\n######## Summary ########\n")
     if len(succeed) > 0:
         _should = ''
-        if confirmation == False:
+        if confirmation is False:
             _should = 'should '
-        if len(succeed) == 1 and confirmation == False:
+        if len(succeed) == 1 and confirmation is False:
             print("1 directory {}have been successfully integrated.\n".format(_should))
         elif len(succeed) == 1:
             print("1 directory has been successfully integrated.\n")
@@ -180,9 +185,11 @@ def printSummary(directories, confirmation):
             print("{} directories {}have been successfully integrated.\n".format(len(succeed), _should))
     printFailed(directories)
 
+
 def usage():
     print('\nUsage : `python UploadTool.py`')
     exit(1)
+
 
 if __name__ == '__main__':
 
@@ -203,4 +210,3 @@ if __name__ == '__main__':
 
     print("\nJob finished")
     exit(0)
-
